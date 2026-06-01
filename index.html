@@ -1,0 +1,921 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Hệ thống tính giá túi bao bì - CTY CP Lai Trường Sơn">
+  <title>LTS Pricing — Tính Giá Bao Bì</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- TOAST CONTAINER -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo">LTS <span>Pricing</span></div>
+  <div class="tabs" id="viewTabs">
+    <button class="tab active" data-view="manager" onclick="switchView('manager')">📊 Quản Lý</button>
+    <button class="tab" data-view="tech" onclick="switchView('tech')">⚙️ Kỹ Thuật</button>
+    <button class="tab" data-view="history" onclick="switchView('history')">📋 Lịch Sử</button>
+  </div>
+  <div class="tab-divider"></div>
+  <button class="tab tab-config" data-view="config" onclick="switchView('config')">🏭 Bảng Định Mức</button>
+  <div class="header-right">
+    <!-- Display Settings Toolbar -->
+    <div class="toolbar-group" id="layoutToolbar" title="Bố cục">
+      <button class="toolbar-btn active" data-layout="default" onclick="setLayout('default')">☰</button>
+      <button class="toolbar-btn" data-layout="stacked" onclick="setLayout('stacked')">▤</button>
+      <button class="toolbar-btn" data-layout="wide" onclick="setLayout('wide')">⬚</button>
+      <button class="toolbar-btn" data-layout="bento" onclick="setLayout('bento')">◫</button>
+    </div>
+    <div class="toolbar-group" id="densityToolbar" title="Mật độ hiển thị">
+      <button class="toolbar-btn" data-density="compact" onclick="setDensity('compact')">S</button>
+      <button class="toolbar-btn active" data-density="comfortable" onclick="setDensity('comfortable')">M</button>
+      <button class="toolbar-btn" data-density="spacious" onclick="setDensity('spacious')">L</button>
+    </div>
+    <button class="theme-toggle" id="themeToggle" onclick="toggleTheme()" title="Chuyển đổi Sáng/Tối"></button>
+    <button class="btn btn-sm btn-outline" onclick="window.print()">🖨️</button>
+    <button class="btn btn-sm btn-outline" onclick="exportResult()">📥 Xuất</button>
+  </div>
+</header>
+
+<div class="container">
+  <div class="main-grid">
+
+    <!-- ═══ LEFT: INPUT FORM ═══ -->
+    <div class="card" id="inputCard" style="position:sticky;top:64px;">
+      <div class="auto-calc-badge">
+        <div class="pulse-dot"></div>
+        Tự động tính khi thay đổi
+      </div>
+      <div class="card-title"><span class="icon">📝</span> Thông tin đơn hàng</div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Khách hàng</label>
+          <input class="form-input" id="customer" placeholder="Tên khách hàng">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Tên hàng</label>
+          <input class="form-input" id="productName" placeholder="Tên sản phẩm">
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label">Số lượng</label>
+        <input class="form-input calc-trigger" id="quantity" type="text" inputmode="numeric" data-fmt="number" value="">
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Loại sản phẩm</label>
+          <select class="form-select" id="productType" onchange="handleProductType()">
+            <option value="">— Chọn —</option>
+            <option value="tui">Túi</option>
+            <option value="mang">Màng</option>
+          </select>
+        </div>
+        <div class="form-group" id="bagTypeGroup" style="display:none">
+          <label class="form-label">Loại túi</label>
+          <select class="form-select" id="bagType" onchange="handleSubType()">
+            <option value="">— Chọn —</option>
+            <option value="3bien">3 biên</option>
+            <option value="4bien">4 biên</option>
+            <option value="xephong_lech">Xếp hông dán lưng lệch</option>
+            <option value="xephong_giua">Xếp hông dán lưng giữa</option>
+            <option value="dayDung">Đáy đứng</option>
+            <option value="cutSeal">Cut seal</option>
+          </select>
+        </div>
+        <div class="form-group" id="filmTypeGroup" style="display:none">
+          <label class="form-label">Loại màng</label>
+          <select class="form-select" id="filmType" onchange="handleSubType()">
+            <option value="">— Chọn —</option>
+            <option value="mangIn">Màng in</option>
+            <option value="mangGhepKoIn">Màng ghép không in</option>
+            <option value="mangGhepCoIn">Màng ghép có in</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <!-- ═══ CẤU TRÚC — ẩn cho đến khi chọn loại sản phẩm ═══ -->
+      <div id="structureSection" style="display:none">
+        <div class="card-title" style="font-size:0.78rem"><span class="icon">🏗️</span> Cấu trúc</div>
+
+        <div class="form-row-3">
+          <div class="form-group">
+            <label class="form-label">Khổ trải (m)</label>
+            <input class="form-input calc-trigger" id="spreadWidth" type="number" value="" step="0.01" min="0.05" oninput="autoCalcCylinder()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Bước cắt (m)</label>
+            <input class="form-input calc-trigger" id="cutStep" type="number" value="" step="0.001" min="0.05" oninput="autoCalcCylinder()">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Số con hình</label>
+            <input class="form-input calc-trigger" id="numImages" type="number" value="1" step="1" min="1" placeholder="1" oninput="autoCalcCylinder()">
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label">Số màu in</label>
+          <select class="form-select calc-trigger" id="numColors">
+            <option value="" selected>— Chọn —</option>
+            <option value="0">Không in</option>
+            <option value="1">1 màu</option><option value="2">2 màu</option>
+            <option value="3">3 màu</option><option value="4">4 màu</option>
+            <option value="5">5 màu</option><option value="6">6 màu</option>
+            <option value="7">7 màu</option><option value="8">8 màu</option>
+          </select>
+        </div>
+
+        <div class="structure-visual" id="structurePreview"></div>
+
+        <div class="form-group">
+          <label class="form-label">Lớp 1</label>
+          <select class="form-select calc-trigger" id="layer1"></select>
+          <div class="mic-adjust" id="micAdjust1" style="display:none">
+            <label class="form-label" style="font-size:0.72rem;margin-top:6px">Độ dày (mic)</label>
+            <input class="form-input calc-trigger" id="micLayer1" type="number" step="1" min="10" max="300" style="display:none">
+            <select class="form-select calc-trigger" id="micSelect1" style="display:none"></select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lớp 2</label>
+          <select class="form-select calc-trigger" id="layer2"><option value="">— Không —</option></select>
+          <div class="mic-adjust" id="micAdjust2" style="display:none">
+            <label class="form-label" style="font-size:0.72rem;margin-top:6px">Độ dày (mic)</label>
+            <input class="form-input calc-trigger" id="micLayer2" type="number" step="1" min="10" max="300" style="display:none">
+            <select class="form-select calc-trigger" id="micSelect2" style="display:none"></select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lớp 3</label>
+          <select class="form-select calc-trigger" id="layer3"><option value="">— Không —</option></select>
+          <div class="mic-adjust" id="micAdjust3" style="display:none">
+            <label class="form-label" style="font-size:0.72rem;margin-top:6px">Độ dày (mic)</label>
+            <input class="form-input calc-trigger" id="micLayer3" type="number" step="1" min="10" max="300" style="display:none">
+            <select class="form-select calc-trigger" id="micSelect3" style="display:none"></select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lớp 4</label>
+          <select class="form-select calc-trigger" id="layer4"><option value="">— Không —</option></select>
+          <div class="mic-adjust" id="micAdjust4" style="display:none">
+            <label class="form-label" style="font-size:0.72rem;margin-top:6px">Độ dày (mic)</label>
+            <input class="form-input calc-trigger" id="micLayer4" type="number" step="1" min="10" max="300" style="display:none">
+            <select class="form-select calc-trigger" id="micSelect4" style="display:none"></select>
+          </div>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Lớp 5</label>
+          <select class="form-select calc-trigger" id="layer5"><option value="">— Không —</option></select>
+          <div class="mic-adjust" id="micAdjust5" style="display:none">
+            <label class="form-label" style="font-size:0.72rem;margin-top:6px">Độ dày (mic)</label>
+            <input class="form-input calc-trigger" id="micLayer5" type="number" step="1" min="10" max="300" style="display:none">
+            <select class="form-select calc-trigger" id="micSelect5" style="display:none"></select>
+          </div>
+        </div>
+
+
+       
+      <!-- ═══ COLLAPSIBLE ADVANCED SECTION ═══ -->
+      <div class="advanced-toggle" id="advancedToggle" onclick="toggleAdvanced()">
+        <span>⚙️ Tùy chỉnh nâng cao</span>
+        <span class="advanced-arrow" id="advancedArrow">▸</span>
+      </div>
+
+      <div class="advanced-section" id="advancedSection">
+        <div class="form-row-3">
+          <div class="form-group">
+            <label class="form-label">Phủ mực (%)</label>
+            <input type="number" class="form-input calc-trigger" id="coverage" value="" min="0" max="100" step="1" placeholder="100">
+          </div>
+        </div>
+
+        <div class="form-row-3" style="margin-top: 10px;">
+          <div class="form-group">
+            <label class="form-check">
+              <input type="checkbox" id="hasNhu" class="calc-trigger"> Nhũ
+            </label>
+          </div>
+          <div class="form-group">
+            <label class="form-check">
+              <input type="checkbox" id="hasMo" class="calc-trigger"> Phủ mờ
+            </label>
+          </div>
+        </div>
+
+        <div class="advanced-sub-title">🎀 Phụ kiện</div>
+        <div class="form-row-3">
+          <div class="form-group">
+            <label class="form-check">
+              <input type="checkbox" id="hasZipper" class="calc-trigger"> Zipper (378đ/m)
+            </label>
+          </div>
+          <div class="form-group">
+            <label class="form-check">
+              <input type="checkbox" id="hasTape" class="calc-trigger"> Băng keo
+            </label>
+          </div>
+          <div class="form-group">
+            <label class="form-check">
+              <input type="checkbox" id="hasHandle" class="calc-trigger"> Quai
+            </label>
+          </div>
+        </div>
+
+        <div class="advanced-sub-title">🖨️ Trục in</div>
+        <div class="form-row-3">
+          <div class="form-group">
+            <label class="form-label">Dài (m)</label>
+            <input class="form-input calc-trigger" id="cylLength" type="number" value="" step="0.01" min="0.1" oninput="checkCylinderBounds()">
+            <div id="cylLengthNotice" style="color:var(--red); font-size:0.75rem; display:none; margin-top:4px; font-weight:600;"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Chu vi (m)</label>
+            <input class="form-input calc-trigger" id="cylCircum" type="number" value="" step="0.01" min="0.1" oninput="checkCylinderBounds()">
+            <div id="cylCircumNotice" style="color:var(--red); font-size:0.75rem; display:none; margin-top:4px; font-weight:600;"></div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Đơn giá (đ/m²)</label>
+            <input class="form-input calc-trigger" id="cylUnitPrice" type="text" inputmode="numeric" data-fmt="number" value="">
+          </div>
+        </div>
+        <div class="cylinder-preview" id="cylinderPreview"></div>
+
+        <div class="advanced-sub-title">📦 Thùng & Vận chuyển</div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Túi/thùng</label>
+            <input class="form-input calc-trigger" id="bagsPerBox" type="text" inputmode="numeric" data-fmt="number" value="">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Giá thùng (đ)</label>
+            <input class="form-input calc-trigger" id="boxPrice" type="text" inputmode="numeric" data-fmt="number" value="">
+          </div>
+        </div>
+        <div class="form-row">
+          <div class="form-group">
+            <label class="form-label">Vận chuyển (đ/km)</label>
+            <input class="form-input calc-trigger" id="shippingPerKm" type="text" inputmode="numeric" data-fmt="number" value="">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Khoảng cách (km)</label>
+            <input class="form-input calc-trigger" id="shippingKm" type="number" value="" min="0" step="10">
+          </div>
+        </div>
+
+        <div class="advanced-sub-title">⏳ Thanh toán</div>
+        <div class="form-group" style="margin-bottom:14px" id="paymentTermGroup">
+          <label class="form-label">Ngày giải ngân</label>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <label class="form-check" style="margin-bottom: 0;">
+              <input type="radio" name="paymentTerm" value="14" class="calc-trigger"> 14 ngày
+            </label>
+            <div style="display:flex; align-items:center; gap:4px">
+              <input type="number" step="0.01" class="form-input calc-trigger pt-rate-input" id="pt_rate_14" value="0.1" style="width: 70px; text-align: right; margin-bottom:0">
+              <span style="font-size: 0.8em; color: var(--muted)">%</span>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <label class="form-check" style="margin-bottom: 0;">
+              <input type="radio" name="paymentTerm" value="30" class="calc-trigger" checked> 30 ngày
+            </label>
+            <div style="display:flex; align-items:center; gap:4px">
+              <input type="number" step="0.01" class="form-input calc-trigger pt-rate-input" id="pt_rate_30" value="0.25" style="width: 70px; text-align: right; margin-bottom:0">
+              <span style="font-size: 0.8em; color: var(--muted)">%</span>
+            </div>
+          </div>
+          <div style="display: flex; align-items: center; justify-content: space-between;">
+            <label class="form-check" style="margin-bottom: 0;">
+              <input type="radio" name="paymentTerm" value="90" class="calc-trigger"> 90 ngày
+            </label>
+            <div style="display:flex; align-items:center; gap:4px">
+              <input type="number" step="0.01" class="form-input calc-trigger pt-rate-input" id="pt_rate_90" value="0.75" style="width: 70px; text-align: right; margin-bottom:0">
+              <span style="font-size: 0.8em; color: var(--muted)">%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="advanced-sub-title">💵 Hoa hồng</div>
+        <div class="form-group">
+          <label class="form-label">Hoa hồng</label>
+          <div class="commission-row">
+            <input class="form-input calc-trigger" id="commission" type="number" value="0" min="0" step="0.5">
+            <select class="form-select calc-trigger" id="commissionUnit" style="width:90px;flex-shrink:0;">
+              <option value="percent" selected>%</option>
+              <option value="vnd">VND</option>
+            </select>
+          </div>
+          <div class="commission-hint" id="commissionHint"></div>
+        </div>
+      </div>
+      </div>
+   <div class="divider"></div>
+
+      <div style="margin-top:14px">
+        <button class="btn btn-primary" id="btnCalculate" onclick="doCalculate()">⚡ Tính Giá</button>
+      </div>
+
+      <div class="quick-actions">
+        <button class="btn btn-sm btn-outline" onclick="resetForm()">🔄 Reset</button>
+        <button class="btn btn-sm btn-outline" onclick="copyResult()">📋 Copy</button>
+      </div>
+    </div>
+
+    <!-- ═══ RIGHT: RESULT PANELS ═══ -->
+    <div id="resultArea">
+      <div class="empty-state" id="emptyState">
+        <div class="icon">📦</div>
+        <p>Nhập thông tin đơn hàng và nhấn <strong>Tính Giá</strong> để xem kết quả</p>
+        <p style="margin-top:8px;font-size:0.78rem;color:var(--dim)">Hoặc thay đổi bất kỳ thông số — kết quả sẽ tự động cập nhật</p>
+      </div>
+
+      <!-- ══ MANAGER VIEW (Quản Lý) ══ -->
+      <div class="panel active" id="panel-manager">
+        <div class="manager-layout" style="position:relative;">
+          
+          <!-- LEFT: Main Manager Content (Scrollable with sections) -->
+          <div class="manager-content">
+            
+            <!-- SECTION: Báo Giá Gợi Ý (formerly Sale) -->
+            <div id="sect-sale" class="manager-section-anchor"></div>
+            <div class="card" style="margin-bottom:14px; padding:0; background:transparent; border:none; box-shadow:none;">
+    
+        <div class="price-hero">
+          <div class="label">Giá đề xuất / túi</div>
+          <div class="value" id="s-price">—</div>
+          <div class="unit">(chưa VAT)</div>
+          <div class="sub" id="s-structure"></div>
+        </div>
+        <div class="chot-gia-row">
+          <div class="form-group">
+            <label class="form-label">Giá bán chốt (đ/túi)</label>
+            <input class="form-input" id="chotGia" type="text" inputmode="numeric" data-fmt="number" placeholder="Nhập giá chốt..." style="border-color:var(--green);" oninput="analyzeChotGia()">
+          </div>
+          <button class="btn btn-sm btn-green" style="margin-bottom:0;height:40px;" onclick="saveChotGia()">✓ Lưu</button>
+        </div>
+        <div id="chotAnalysis"></div>
+        <div style="height:14px"></div>
+        <div class="stat-grid" id="s-stats"></div>
+
+        <div class="card" style="margin-bottom:14px;">
+          <div class="card-title"><span class="icon">💰</span> Chi tiết giá bán đề xuất / túi</div>
+          <ul class="breakdown-list" id="s-breakdown"></ul>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="icon">🧾</span> Thông tin đơn hàng</div>
+          <ul class="breakdown-list" id="s-order-info"></ul>
+        </div>
+            </div>
+
+            <!-- SECTION: Phân Tích Chi Phí -->
+            <div id="sect-cost" class="manager-section-anchor"></div>
+            <div class="stat-grid" id="m-stats" style="margin-top:20px"></div>
+            <div class="card" style="margin-bottom:14px; display:none;">
+              <div class="card-title"><span class="icon">📊</span> Cơ cấu giá vốn sản xuất</div>
+              <div class="cost-bar" id="m-costbar"></div>
+              <div class="cost-legend" id="m-legend"></div>
+              <div class="table-responsive">
+                <table class="data-table" id="m-cost-table" style="margin-top:14px"></table>
+              </div>
+            </div>
+            <div class="card" style="margin-bottom:14px; display:none;">
+              <div class="card-title"><span class="icon">📈</span> Phân tích lợi nhuận</div>
+              <ul class="breakdown-list" id="m-profit"></ul>
+            </div>
+            <div class="card" style="display:none;">
+              <div class="card-title"><span class="icon">💵</span> Chi phí phụ tổng</div>
+              <div class="table-responsive">
+                <table class="data-table" id="m-extra-table"></table>
+              </div>
+            </div>
+
+            <!-- SECTION: Thông Tin Kỹ Thuật (Manager) -->
+            <div id="sect-tech" class="manager-section-anchor"></div>
+            <div class="card" style="margin-bottom:14px">
+              <div class="card-title"><span class="icon">🏭</span> Đặc tả kỹ thuật & nguyên liệu</div>
+              <div class="table-responsive">
+                <table class="data-table" id="m-t-unified-table"></table>
+              </div>
+            </div>
+
+            <!-- SECTION: MOQ Bảng Giá -->
+            <div id="sect-moq" class="manager-section-anchor"></div>
+            <div class="card" style="margin-bottom:14px; margin-top:14px;">
+              <div class="card-title"><span class="icon">📦</span> Bảng giá theo số lượng (MOQ)</div>
+              <div class="info-box">
+                <span class="icon">💡</span>
+                So sánh giá khi thay đổi số lượng đặt hàng. Dòng tô sáng là số lượng hiện tại.
+              </div>
+              <div class="table-responsive">
+                <table class="moq-table" id="moq-table"></table>
+              </div>
+            </div>
+            <div id="sect-roll" class="manager-section-anchor"></div>
+            <div class="card">
+              <div class="card-title"><span class="icon">🎞️</span> SỐ LƯỢNG THEO CUỘN MÀNG</div>
+              <div class="info-box">
+                <span class="icon">💡</span>
+                Số lượng tối ưu theo cuộn màng tiêu chuẩn của lớp in. Giúp đặt hàng khớp cuộn, giảm hao hụt.
+              </div>
+              <div class="table-responsive">
+                <table class="moq-table" id="moq-roll-table"></table>
+              </div>
+            </div>
+
+            <!-- SECTION: Bảng Báo Giá -->
+            <div id="sect-quote" class="manager-section-anchor"></div>
+            <div class="card" style="margin-top:14px; margin-bottom: 20px; display: none;">
+              <div class="card-title"><span class="icon">📋</span> Bảng báo giá</div>
+              <div class="quote-header" style="display: flex; align-items: center; justify-content: center; gap: 12px; border-bottom: 4px double #9e9e9e; padding-bottom: 16px; margin-bottom: 24px; flex-wrap: wrap;">
+                <!-- Logo -->
+                <img src="images/untitled-10.png" alt="Logo LTS" style="height: 60px; object-fit: contain; flex-shrink: 0; margin-top: 12px;">
+                <!-- Thông tin cty -->
+                <div style="text-align: center;">
+                  <h3 style="margin: 0 0 4px 0; font-size: 1.1rem; font-weight: 800; color: #000; text-transform: uppercase;">
+                    CÔNG TY CỔ PHẦN THƯƠNG MẠI VÀ SẢN XUẤT BAO BÌ LAI TRƯỜNG SƠN - LONG AN
+                  </h3>
+                  <div style="font-size: 0.9rem; color: #000; font-style: italic; margin-bottom: 2px;">
+                    Địa chỉ: Số 36 Đường Ấp 7B, Xã Mỹ Yên, Tỉnh Tây Ninh, Việt Nam
+                  </div>
+                  <div style="font-size: 0.9rem; color: #000;">
+                    Mã số thuế: 1101904518 <span style="margin: 0 8px;">-</span> Email: <span style="color: blue;">baobilaitruongson.la@gmail.com</span>
+                  </div>
+                </div>
+              </div>
+
+              <div style="text-align: center; margin-bottom: 24px;">
+                <h2 style="margin: 0; font-size: 1.4rem; font-weight: 800; color: var(--accent); text-transform: uppercase; letter-spacing: 0.05em;">BẢNG BÁO GIÁ</h2>
+              </div>
+
+              <div class="form-row">
+                <div class="form-group">
+                  <label class="form-label">Kính gửi CTY</label>
+                  <input type="text" class="form-input" id="quoteCustomer" style="background: var(--surface2); font-weight: 600;" readonly>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Mã số thuế</label>
+                  <input type="text" class="form-input" id="quoteTaxId" placeholder="Nhập mã số thuế...">
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">Địa chỉ</label>
+                <input type="text" class="form-input" id="quoteAddress" placeholder="Nhập địa chỉ...">
+              </div>
+
+              <div style="margin: 18px 0 14px; font-size: 0.9rem;">
+                Chúng tôi xin trân trọng gửi đến quý khách hàng bảng báo giá chi tiết như sau:
+              </div>
+
+              <div style="background: var(--surface2); padding: 16px; border-radius: 10px; border: 1px solid var(--border); margin-bottom: 16px;">
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Tên sản phẩm</label>
+                    <input type="text" class="form-input" id="quoteProductName" style="font-weight: 600;" readonly>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Màu in</label>
+                    <input type="text" class="form-input" id="quoteColors" readonly>
+                  </div>
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Chất liệu</label>
+                    <input type="text" class="form-input" id="quoteMaterial" readonly>
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Độ dày (mic)</label>
+                    <input type="text" class="form-input" id="quoteThickness" placeholder="Nhập độ dày (có thể sửa). VD: 100">
+                  </div>
+                </div>
+
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Quy cách túi</label>
+                    <input type="text" class="form-input" id="quoteSize" placeholder="Nhập quy cách...">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Thông tin khác</label>
+                    <input type="text" class="form-input" id="quoteOtherInfo" placeholder="Nhập thông tin khác (nếu có)...">
+                  </div>
+                </div>
+              </div>
+
+              <div class="table-responsive" style="margin-bottom: 20px;">
+                <table class="data-table" id="quote-table">
+                  <thead>
+                    <tr>
+                      <th>Hạng mục</th>
+                      <th class="num">Số lượng</th>
+                      <th class="num">Đơn vị</th>
+                      <th class="num">Đơn giá</th>
+                      <th class="num">Thành tiền</th>
+                      <th class="num">VAT</th>
+                    </tr>
+                  </thead>
+                  <tbody id="quote-table-body">
+                    <!-- Rendered via JS -->
+                  </tbody>
+                </table>
+              </div>
+
+              <div style="background: rgba(79,70,229,0.03); padding: 16px; border-radius: 10px; border: 1px solid var(--border);">
+                <div style="font-weight: 700; color: var(--accent); margin-bottom: 10px; font-size: 0.85rem; text-transform: uppercase;">Lưu ý</div>
+                <div style="font-size: 0.85rem; margin-bottom: 16px; padding-left: 14px; position: relative;">
+                  <span style="position: absolute; left: 0; top: 0;">-</span>
+                  Số lượng giao hàng thực tế có thể tăng giảm 10% so với đơn đặt hàng => giá trị đơn hàng theo số lượng giao hàng thực tế.
+                </div>
+                
+                <div class="form-row">
+                  <div class="form-group">
+                    <label class="form-label">Thanh toán</label>
+                    <input type="text" class="form-input" id="quotePayment" placeholder="Nhập hình thức thanh toán...">
+                  </div>
+                  <div class="form-group">
+                    <label class="form-label">Thời gian giao hàng</label>
+                    <input type="text" class="form-input" id="quoteDeliveryTime" placeholder="Nhập thời gian giao hàng...">
+                  </div>
+                </div>
+                
+                <div class="form-group">
+                  <label class="form-label">Ghi chú kỹ thuật</label>
+                  <textarea class="form-input" id="quoteTechNote" rows="2" placeholder="Nhập ghi chú kỹ thuật..."></textarea>
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 0;">
+                  <label class="form-label">Khác (Để trống nếu không hiển thị)</label>
+                  <textarea class="form-input" id="quoteOtherNote" rows="2" placeholder="Nhập các lưu ý khác..."></textarea>
+                </div>
+              </div>
+
+              <div id="sect-weight" class="manager-section-anchor"></div>
+              <div class="card" style="margin-top: 14px;">
+                <div class="card-title"><span class="icon">⚖️</span> Trọng lượng & Vận chuyển</div>
+                <ul class="breakdown-list" id="m-t-weight"></ul>
+              </div>
+
+            </div>
+
+          </div> <!-- End manager-content -->
+
+          <!-- RIGHT: Floating TOC Sub-Menu -->
+          <div class="manager-toc" style="width: 250px; position: fixed; right: 20px; top: 80px; background: var(--surface); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow-lg); z-index: 90;">
+            <div style="font-size:0.85rem; font-weight:700; color:var(--muted); text-transform:uppercase; margin-bottom:12px; letter-spacing:0.5px;">Mục lục các bảng</div>
+            <a href="#sect-sale" class="toc-link" style="display:block; padding:8px 12px; margin-bottom:4px; text-decoration:none; color:var(--text); border-radius:6px; font-size:0.9rem; font-weight:600; background:var(--bg);">1. Bảng Báo Giá Gợi Ý</a>
+            <a href="#sect-tech" class="toc-link" style="display:block; padding:8px 12px; margin-bottom:4px; text-decoration:none; color:var(--text); border-radius:6px; font-size:0.9rem; font-weight:600; background:var(--bg);">2. Bảng Đặc Tả Kỹ Thuật</a>
+            <a href="#sect-moq" class="toc-link" style="display:block; padding:8px 12px; margin-bottom:4px; text-decoration:none; color:var(--text); border-radius:6px; font-size:0.9rem; font-weight:600; background:var(--bg);">3. Bảng Giá Theo MOQ</a>
+            <a href="#sect-roll" class="toc-link" style="display:block; padding:8px 12px; margin-bottom:4px; text-decoration:none; color:var(--text); border-radius:6px; font-size:0.9rem; font-weight:600; background:var(--bg);">4. Bảng MOQ Cuộn Màng</a>
+            <a href="#sect-weight" class="toc-link" style="display:block; padding:8px 12px; margin-bottom:4px; text-decoration:none; color:var(--text); border-radius:6px; font-size:0.9rem; font-weight:600; background:var(--bg);">5. Trọng Lượng & Vận Chuyển</a>
+            <a href="#sect-quote" class="toc-link" style="display:block; padding:8px 12px; margin-bottom:4px; text-decoration:none; color:var(--text); border-radius:6px; font-size:0.9rem; font-weight:600; background:var(--bg);">6. Bảng Báo Giá (Bản In)</a>
+          </div>
+
+        </div> <!-- End manager-layout -->
+      </div> <!-- End panel-manager -->
+
+      <!-- ══ TECH VIEW ══ -->
+      <div class="panel" id="panel-tech">
+        <div class="info-box">
+          <span class="icon">ℹ️</span>
+          Chỉ Đạo Sản Xuất <strong id="t-structure"></strong>
+        </div>
+        <div class="stat-grid" id="t-stats"></div>
+        <div class="card" style="margin-bottom:14px">
+          <div class="card-title"><span class="icon">🏭</span> Chi tiết sản xuất & nguyên liệu</div>
+          <div class="table-responsive">
+            <table class="data-table" id="t-unified-table"></table>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-title"><span class="icon">⚖️</span> Trọng lượng & Vận chuyển</div>
+          <ul class="breakdown-list" id="t-weight"></ul>
+        </div>
+      </div>
+
+      <!-- ══ BENTO VIEW ══ -->
+      <div class="panel" id="panel-bento">
+        <div id="bentoGrid"></div>
+      </div>
+
+      <!-- ══ HISTORY VIEW ══ -->
+      <div class="panel" id="panel-history">
+        <div class="card">
+          <div class="card-title" style="justify-content:space-between">
+            <span><span class="icon">📋</span> Lịch sử tính giá</span>
+            <div style="display:flex;gap:6px">
+              <button class="btn btn-sm btn-outline" onclick="exportHistory()">📥 Xuất CSV</button>
+              <button class="btn btn-sm btn-danger" onclick="if(confirm('Xóa toàn bộ lịch sử?')){clearHistory();renderHistory();}">🗑️ Xóa</button>
+            </div>
+          </div>
+          <div class="search-box">
+            <input type="text" id="historySearch" placeholder="Tìm kiếm theo tên, khách hàng, cấu trúc..." oninput="renderHistory()">
+          </div>
+          <div id="historyList"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+</div>
+
+<!-- ═══ CONFIG PAGE: Bảng Định Mức Chi Phí (full-page tab) ═══ -->
+<div class="config-page" id="configPage" style="display:none">
+  <div class="config-page-inner">
+    <div class="config-page-header">
+      <h2>🏭 Bảng Định Mức Chi Phí</h2>
+      <p class="config-page-subtitle">Giá trị đầu vào dùng cho tính toán sản xuất</p>
+    </div>
+
+    <!-- RIGHT: Floating TOC Sub-Menu -->
+    <div class="manager-toc" style="width: 200px; position: fixed; right: 20px; top: 80px; background: var(--surface); padding: 16px; border-radius: var(--radius); border: 1px solid var(--border); box-shadow: var(--shadow-lg); z-index: 90;">
+      <div style="font-size:0.85rem; font-weight:700; color:var(--muted); text-transform:uppercase; margin-bottom:12px; letter-spacing:0.5px;">Mục lục</div>
+      <a href="#sect-config-nvl" class="toc-link" style="display:block; padding:8px 12px; margin-bottom:4px; text-decoration:none; color:var(--text); border-radius:6px; font-size:0.9rem; font-weight:600; background:var(--bg);">📦 Bảng Giá NVL</a>
+      <a href="#sect-config-in" class="toc-link" style="display:block; padding:8px 12px; margin-bottom:4px; text-decoration:none; color:var(--text); border-radius:6px; font-size:0.9rem; font-weight:600; background:var(--bg);">🖨️ CPSX Khâu in</a>
+      <a href="#sect-config-ghep" class="toc-link" style="display:block; padding:8px 12px; margin-bottom:4px; text-decoration:none; color:var(--text); border-radius:6px; font-size:0.9rem; font-weight:600; background:var(--bg);">🔗 CPSX Khâu Ghép</a>
+      <a href="#sect-config-cat" class="toc-link" style="display:block; padding:8px 12px; margin-bottom:4px; text-decoration:none; color:var(--text); border-radius:6px; font-size:0.9rem; font-weight:600; background:var(--bg);">✂️ CPSX Khâu cắt</a>
+      <a href="#sect-config-loinhuan" class="toc-link" style="display:block; padding:8px 12px; margin-bottom:4px; text-decoration:none; color:var(--text); border-radius:6px; font-size:0.9rem; font-weight:600; background:var(--bg);">💰 Lợi Nhuận</a>
+    </div>
+
+    <div class="config-content">
+
+    <!-- 1.1 Bảng giá NVL -->
+    <div class="card config-card" id="sect-config-nvl" style="scroll-margin-top: 80px;">
+      <div class="config-section-title">
+        <span>📦 Giá Nguyên Vật Liệu Cập Nhật Hàng Ngày</span>
+        <button class="btn btn-sm btn-outline" onclick="resetMaterialPrices()">🔄 Reset mặc định</button>
+      </div>
+      <div class="config-table-wrap">
+        <table class="config-table" id="materialPriceTable">
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Màng</th>
+              <th>Tỉ trọng (g/m³)</th>
+              <th>Độ dày (mic)</th>
+              <th>Giá (VNĐ/kg)</th>
+              <th>Giá (VNĐ/m²)</th>
+            </tr>
+          </thead>
+          <tbody id="materialPriceBody">
+            <!-- Rendered by JS -->
+          </tbody>
+        </table>
+      </div>
+      <p class="config-note">💡 Chỉnh <strong>Độ dày</strong> và <strong>Giá VNĐ/kg</strong> — giá VNĐ/m² tự động tính lại. Thay đổi sẽ áp dụng ngay cho lần tính giá tiếp theo.</p>
+    </div>
+
+    <!-- ═══════════ NHÓM 1: CHI PHÍ KHÂU IN ═══════════ -->
+    <div class="config-group-header" id="sect-config-in" style="scroll-margin-top: 80px;">🖨️ CPSX Khâu in</div>
+
+    <!-- 1.2 Bảng giá màu in -->
+    <div class="card config-card">
+      <div class="config-section-title">
+        <span>🎨 Giá Màu In Theo Loại Màng</span>
+      </div>
+      <div class="config-table-wrap">
+        <table class="config-table" id="inkPriceTable">
+          <thead>
+            <tr>
+              <th>STT</th>
+              <th>Màng</th>
+              <th>Giá mực/màu (đ)</th>
+            </tr>
+          </thead>
+          <tbody id="inkPriceBody">
+            <!-- Rendered by JS -->
+          </tbody>
+        </table>
+      </div>
+      <p class="config-note">💡 Giá mực in tính trên mỗi màu in. PET/PA mặc định 135 đ, các loại khác 120 đ.</p>
+    </div>
+
+    <!-- 1.3 Công Thức Tính Phi Hao In -->
+    <div class="card config-card">
+      <div class="config-section-title">
+        <span>📉 Công Thức Tính Phi Hao In</span>
+      </div>
+      <div class="config-table-wrap">
+        <table class="config-table" id="printWasteTable">
+          <thead>
+            <tr>
+              <th>Số màu in</th>
+              <th>Phi hao set up (m)</th>
+              <th style="padding-bottom: 8px">
+                Phi hao <br>
+                <div style="margin-top:2px;">
+                  <span style="font-size:0.8rem;font-weight:normal;text-transform:none">
+                    (CD / <input type="number" class="config-inline-input" style="width:75px; margin:0 4px; padding: 4px; font-weight:700" 
+                           id="cfgWasteA_header" onchange="updatePrintWasteConfig('header')"> × B)
+                  </span>
+                </div>
+              </th>
+              <th style="padding-bottom: 8px">
+                Vượt định mức 
+                <input type="number" class="config-inline-input" style="width:75px; margin:0 4px; padding: 4px; font-weight:700" 
+                       id="cfgWasteC_header" onchange="updatePrintWasteConfig('header')"> m <br>
+                <span style="font-size:0.75rem;font-weight:normal;text-transform:none">(cộng thêm CD / C × D)</span>
+              </th>
+            </tr>
+          </thead>
+          <tbody id="printWasteBody">
+            <!-- Rendered by JS -->
+          </tbody>
+        </table>
+      </div>
+      <p class="config-note">💡 A, B, C, D là các tham số dùng chung cho mọi số màu in.</p>
+    </div>
+
+    <!-- 1.3 Phụ phí nhũ / phủ mờ -->
+    <div class="card config-card">
+      <div class="config-section-title">
+        <span>✨ Phụ Phí Nhũ / Phủ Mờ</span>
+      </div>
+      <div class="config-cpsx-grid">
+        <div class="config-cpsx-item">
+          <label>Giá nhũ (đ)</label>
+          <input type="text" class="fmt-number" id="cfgNhuPrice" value="200" oninput="fmtCfgInput(this)" onchange="updateCPSXConstants()">
+        </div>
+        <div class="config-cpsx-item">
+          <label>Giá phủ mờ (đ)</label>
+          <input type="text" class="fmt-number" id="cfgMoPrice" value="200" oninput="fmtCfgInput(this)" onchange="updateCPSXConstants()">
+        </div>
+      </div>
+      <p class="config-note">💡 Khi tích Nhũ hoặc Phủ mờ ở form nhập liệu, giá trị tương ứng sẽ được cộng vào CPSX in.</p>
+    </div>
+
+    <!-- 1.4 Chi phí nhân công và chi phí khác -->
+    <div class="card config-card">
+      <div class="config-section-title">
+        <span>👷 Chi Phí Nhân Công & Chi Phí Khác</span>
+      </div>
+      <div class="config-cpsx-grid">
+        <div class="config-cpsx-item">
+          <label>Chi phí nhân công + khác (đ)</label>
+          <input type="text" class="fmt-number" id="cfgLaborCost" value="318" oninput="fmtCfgInput(this)" onchange="updateCPSXConstants()">
+        </div>
+      </div>
+      <p class="config-note">💡 Chi phí nhân công và chi phí khác được cộng vào CPSX in cho mỗi đơn hàng.</p>
+    </div>
+
+    <!-- ═══════════ NHÓM 2: CHI PHÍ KHÂU GHÉP ═══════════ -->
+    <div class="config-group-header" id="sect-config-ghep" style="scroll-margin-top: 80px;">🔗 CPSX Khâu Ghép</div>
+
+    <div class="card config-card">
+      <div class="config-section-title">
+        <span>⚙️ CPSX Ghép</span>
+      </div>
+      <div class="config-cpsx-grid">
+        <div class="config-cpsx-item">
+          <label>CPSX Ghép (đ/m²)</label>
+          <input type="text" class="fmt-number" id="cfgGhepCPSX" value="684" oninput="fmtCfgInput(this)" onchange="updateCPSXConstants()">
+        </div>
+      </div>
+      <p class="config-note">💡 Chi phí sản xuất ghép tính trên mỗi m² màng.</p>
+    </div>
+
+    <!-- ═══════════ NHÓM 3: CHI PHÍ KHÂU CẮT ═══════════ -->
+    <div class="config-group-header" id="sect-config-cat" style="scroll-margin-top: 80px;">✂️ CPSX Khâu cắt</div>
+
+    <div class="card config-card">
+      <div class="config-section-title">
+        <span>✂️ Định Mức Cắt</span>
+      </div>
+      <div class="config-cpsx-grid">
+        <div class="config-cpsx-item">
+          <label>CPSX Cắt cơ bản (đ)</label>
+          <input type="text" class="fmt-number" id="cfgCutBase" value="971" oninput="fmtCfgInput(this)" onchange="updateCPSXConstants()">
+        </div>
+      </div>
+      <div class="config-table-wrap" style="margin-top:12px">
+        <table class="config-table">
+          <thead>
+            <tr>
+              <th>Diện tích túi</th>
+              <th>Ngưỡng (m²)</th>
+              <th>Hệ số</th>
+              <th>CPSX Cắt thực tế</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Nhỏ</td>
+              <td><input type="number" class="config-inline-input" id="cfgCutThreshold1" value="0.07" step="0.01" min="0" onchange="updateCPSXConstants()"></td>
+              <td><input type="number" class="config-inline-input" id="cfgCutMult1" value="1.4" step="0.1" min="0" onchange="updateCPSXConstants()"></td>
+              <td class="cut-preview" id="cutPreview1">1.359</td>
+            </tr>
+            <tr>
+              <td>Trung bình</td>
+              <td><input type="number" class="config-inline-input" id="cfgCutThreshold2" value="0.2" step="0.01" min="0" onchange="updateCPSXConstants()"></td>
+              <td><input type="number" class="config-inline-input" id="cfgCutMult2" value="1.2" step="0.1" min="0" onchange="updateCPSXConstants()"></td>
+              <td class="cut-preview" id="cutPreview2">1.165</td>
+            </tr>
+            <tr>
+              <td>Lớn</td>
+              <td>—</td>
+              <td><input type="number" class="config-inline-input" id="cfgCutMult3" value="0.8" step="0.1" min="0" onchange="updateCPSXConstants()"></td>
+              <td class="cut-preview" id="cutPreview3">777</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="config-note">💡 CPSX Cắt = Cắt cơ bản × Hệ số. Ngưỡng dựa trên diện tích túi (m²).</p>
+    </div>
+
+    <!-- ═══════════ NHÓM 4: BẢNG LỢI NHUẬN ═══════════ -->
+    <div class="config-group-header" id="sect-config-loinhuan" style="scroll-margin-top: 80px;">💰 Bảng Lợi Nhuận</div>
+
+    <div class="card config-card">
+      <div class="config-section-title" style="align-items: center;">
+        <span>📈 Tỉ Lệ Lợi Nhuận Theo Giá Vốn</span>
+        <div style="display:flex; align-items:center; gap: 8px;">
+          <span style="font-size:0.85rem; font-weight:normal; color:var(--muted)">Nhóm Khách hàng:</span>
+          <select id="configCustomerGroup" class="form-select" style="width: auto; padding: 4px 24px 4px 10px; font-weight: normal; font-size: 0.85rem;" onchange="handleProfitCustomerGroupChange()">
+            <option value="svlg">Sen Việt và Lương Gia</option>
+            <option value="other" selected>Khác</option>
+          </select>
+        </div>
+      </div>
+      <div class="config-table-wrap">
+        <table class="config-table" id="profitTable">
+          <thead>
+            <tr>
+              <th>Giá Vốn</th>
+              <th>Túi 3,4 biên, màng ghép: 2 lớp</th>
+              <th>Túi zipper, Đáy đứng, MPET, AL, giấy, màng ghép 3 lớp..</th>
+            </tr>
+          </thead>
+          <tbody id="profitTableBody">
+            <!-- Rendered by JS -->
+          </tbody>
+        </table>
+      </div>
+      <p class="config-note">💡 Tỉ lệ lợi nhuận tự động tính từ giá vốn. Các con số này có thể chỉnh sửa và tự động lưu.</p>
+    </div>
+
+    <!-- ═══════════ NHÓM 5: GIÁ PHỤ KIỆN ═══════════ -->
+    <div class="config-group-header" id="sect-config-phukien" style="scroll-margin-top: 80px;">🎀 Giá Phụ Kiện</div>
+
+    <div class="card config-card">
+      <div class="config-section-title">
+        <span>💰 Cài Đặt Đơn Giá Phụ Kiện</span>
+      </div>
+      <div class="config-table-wrap">
+        <table class="config-table">
+          <thead>
+            <tr>
+              <th>Phụ kiện</th>
+              <th>Đơn giá</th>
+              <th>Trọng lượng</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Zipper</td>
+              <td>
+                <input type="text" class="config-inline-input fmt-number" id="cfgZipperPrice" value="378" oninput="fmtCfgInput(this)" onchange="updateCPSXConstants()" style="width:75px; text-align:right; font-weight:700; background:transparent"> đ/m
+              </td>
+              <td>
+                <input type="number" class="config-inline-input" id="cfgZipperWeight" value="0" step="0.1" min="0" onchange="updateCPSXConstants()" style="width:75px; text-align:right; font-weight:700; background:transparent"> Gr/m
+              </td>
+            </tr>
+            <tr>
+              <td>Băng keo</td>
+              <td>
+                <input type="text" class="config-inline-input fmt-number" id="cfgTapePrice" value="200" oninput="fmtCfgInput(this)" onchange="updateCPSXConstants()" style="width:75px; text-align:right; font-weight:700; background:transparent"> đ/m
+              </td>
+              <td>
+                <input type="number" class="config-inline-input" id="cfgTapeWeight" value="0" step="0.1" min="0" onchange="updateCPSXConstants()" style="width:75px; text-align:right; font-weight:700; background:transparent"> Gr/m
+              </td>
+            </tr>
+            <tr>
+              <td>Quai</td>
+              <td>
+                <input type="text" class="config-inline-input fmt-number" id="cfgHandlePrice" value="650" oninput="fmtCfgInput(this)" onchange="updateCPSXConstants()" style="width:75px; text-align:right; font-weight:700; background:transparent"> đ/cái
+              </td>
+              <td>
+                <input type="number" class="config-inline-input" id="cfgHandleWeight" value="0" step="0.1" min="0" onchange="updateCPSXConstants()" style="width:75px; text-align:right; font-weight:700; background:transparent"> Gr/cái
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p class="config-note">💡 Đơn giá thay đổi tùy thời điểm, tự động áp dụng khi chốt giá cho đơn hàng.</p>
+    </div>
+
+    </div>
+    </div> <!-- Stop config-content -->
+
+  </div> <!-- Stop config-page-inner -->
+</div>
+
+<script src="data.js"></script>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
